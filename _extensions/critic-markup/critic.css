@@ -1,0 +1,130 @@
+.fullcontent {
+    padding-top: 30px !important;
+}
+#criticnav {
+    position: fixed;
+    z-index: 1100;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border-bottom: solid 1px #696f75;
+    margin: 0;
+    padding: 0;
+    background-color: rgba(255,255,255,0.95);
+    color: #696f75;
+    font-size: 14px;
+    font-family: "Helvetica Neue", helvetica, arial, sans-serif !important
+}
+
+#criticnav ul {
+    list-style-type: none;
+    width: 90%;
+    margin: 0 auto;
+    padding: 0
+}
+
+#criticnav ul li {
+    display: block;
+    width: 15%;
+    min-width: 100px;
+    text-align: center;
+    padding: 5px 0 3px !important;
+    margin: 5px 2px !important;
+    line-height: 1em;
+    float: left;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-user-select: none;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0);
+    color: #777 !important
+}
+
+#criticnav ul li:before {
+    content: none !important
+}
+
+#criticnav ul li.active {
+    border: 1px solid #696f75
+}
+
+.original del {
+    
+        text-decoration: none;
+}	
+
+.original ins,
+.original span.popoverc,
+.original ins.break {
+    display: none;
+}
+
+.edited ins {
+    
+        text-decoration: none;
+}	
+
+.edited del,
+.edited span.popoverc,
+.edited ins.break {
+    display: none;
+}
+
+.original mark,
+.edited mark {
+    background-color: transparent;
+}
+
+.markup mark {
+    background-color: #fffd38;
+    text-decoration: none;
+}
+
+.markup del {
+    background-color: rgba(183,47,47,0.4);
+    text-decoration: none;
+}
+
+.markup ins {
+    background-color: rgba(152,200,86,0.4);
+    text-decoration: none;
+}
+
+.markup ins.break {
+    display: block;
+    line-height: 2px;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.markup ins.break span {
+    line-height: 1.5em;
+}
+
+.markup .popoverc {
+    background-color: #e5b000;
+    color: #fff;
+}
+
+.markup .popoverc .critic.comment {
+    display: none;
+}
+
+.markup .popoverc:hover span.critic.comment {
+    display: block;
+    position: absolute;
+    width: 200px;
+    left: 30%;
+    font-size: 0.8em; 
+    color: #ccc;
+    background-color: #333;
+    z-index: 10;
+    padding: 0.5em 1em;
+    border-radius: 0.5em;
+}
+
+@media print {
+    #criticnav {
+        display: none !important
+    }
+}
