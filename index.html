@@ -33,6 +33,7 @@ ul.task-list li input[type="checkbox"] {
 <script src="example_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="example_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="example_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="example_files/libs/quarto-contrib/critic/critic.min.js"></script>
 <link href="example_files/libs/quarto-contrib/critic/critic.css" rel="stylesheet">
 
 
@@ -67,23 +68,23 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="highlighting" class="level2">
 <h2 class="anchored" data-anchor-id="highlighting">Highlighting</h2>
-<p><mark>Highlighted text</mark></p>
-<p><mark> Highlighted text with a comment</mark><span class="critic comment">First comment</span></p>
-<p><span class="critic comment">Single comment </span></p>
+<p><code>{==Highlighted text==}</code> <mark>Highlighted text</mark></p>
+<p><code>{== Highlighted text with a comment==}{&gt;&gt;First comment&lt;&lt;}</code> <mark> Highlighted text with a comment</mark><span class="critic comment">First comment</span></p>
+<p><code>{&gt;&gt;Single comment &lt;&lt;}</code> <span class="critic comment">Single comment </span></p>
 </section>
 <section id="addition" class="level2">
 <h2 class="anchored" data-anchor-id="addition">Addition</h2>
-<p><ins>This is added text</ins></p>
-<p><ins>This is added text with some removed</ins><del> removed</del></p>
+<p><code>{++This is added text++}</code> <ins>This is added text</ins></p>
+<p><code>{++This is added text with some removed++}{-- removed--}</code> <ins>This is added text with some removed</ins><del> removed</del></p>
 </section>
 <section id="deletion" class="level2">
 <h2 class="anchored" data-anchor-id="deletion">Deletion</h2>
-<p><del>This is removed text</del></p>
-<p><del>This is removed text with some added</del><ins>added </ins></p>
+<p><code>{--This is removed text--}</code> <del>This is removed text</del></p>
+<p><code>{--This is removed text with some added--}{++added ++}</code> <del>This is removed text with some added</del><ins>added </ins></p>
 </section>
 <section id="replacement" class="level2">
 <h2 class="anchored" data-anchor-id="replacement">Replacement</h2>
-<p><del>This is original text</del><ins> this is the replacement</ins></p>
+<p><code>{~~This is original text~&gt; this is the replacement~~}</code> <del>This is original text</del><ins> this is the replacement</ins></p>
 </section>
 
 </main>
@@ -331,8 +332,55 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </ul>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-<script type="text/javascript" src="_extensions/critic-markup/critic.js"></script>
+<script type="text/javascript">
+  function critic() {
+
+      $('.fullcontent').addClass('markup');
+      $('#markup-button').addClass('active');
+      $('ins.break').unwrap();
+      $('span.critic.comment').wrap('<span class="popoverc" /></span>');
+      $('span.critic.comment').before('&#8225;');
+  }
+
+  function original() {
+      $('#original-button').addClass('active');
+      $('#edited-button').removeClass('active');
+      $('#markup-button').removeClass('active');
+
+      $('.fullcontent').addClass('original');
+      $('.fullcontent').removeClass('edited');
+      $('.fullcontent').removeClass('markup');
+  }
+
+  function edited() {
+      $('#original-button').removeClass('active');
+      $('#edited-button').addClass('active');
+      $('#markup-button').removeClass('active');
+
+      $('.fullcontent').removeClass('original');
+      $('.fullcontent').addClass('edited');
+      $('.fullcontent').removeClass('markup');
+  } 
+
+  function markup() {
+      $('#original-button').removeClass('active');
+      $('#edited-button').removeClass('active');
+      $('#markup-button').addClass('active');
+
+      $('.fullcontent').removeClass('original');
+      $('.fullcontent').removeClass('edited');
+      $('.fullcontent').addClass('markup');
+  }
+
+  var o = document.getElementById("original-button");
+  var e = document.getElementById("edited-button");
+  var m = document.getElementById("markup-button");
+
+  window.onload = critic();
+  o.onclick = original;
+  e.onclick = edited;
+  m.onclick = markup;
+</script>
 
 
 
