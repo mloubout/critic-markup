@@ -35,7 +35,7 @@ local scriptcode = [[
 <script type="text/javascript">
   function critic() {
 
-      $('.fullcontent').addClass('markup');
+      $('.content').addClass('markup');
       $('#markup-button').addClass('active');
       $('ins.break').unwrap();
       $('span.critic.comment').wrap('<span class="popoverc" /></span>');
