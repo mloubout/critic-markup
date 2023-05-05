@@ -3,9 +3,10 @@ function critic() {
     $('.fullcontent').addClass('markup');
     $('#markup-button').addClass('active');
     $('ins.break').unwrap();
-    $('span.critic.comment').wrap('<span class="popoverc" /></span>');
+    $('span.critic.comment').wrap('<span class="popover" />');
     $('span.critic.comment').before('&#8225;');
-}
+
+}  
 
 function original() {
     $('#original-button').addClass('active');
@@ -41,7 +42,7 @@ var o = document.getElementById("original-button");
 var e = document.getElementById("edited-button");
 var m = document.getElementById("markup-button");
 
-window.onload = critic();
+window.onload = critic;
 o.onclick = original;
 e.onclick = edited;
 m.onclick = markup;
