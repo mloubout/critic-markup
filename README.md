@@ -33,4 +33,4 @@ filters:
 
 Here is a minimal example showing the critic markup syntax and its rendering: [example.qmd](example.qmd).
 
-This is the output of [example.qmd](example.qmd).
+This is the output of [example.qmd](https://mloubout.github.io/critic-markup/).

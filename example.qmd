@@ -10,26 +10,26 @@ This filter adds processing of critic markdown syntax. Below are examples of usa
 
 ## Highlighting
 
-{==Highlighted text==}
+`{==Highlighted text==}` {==Highlighted text==}
 
-{== Highlighted text with a comment==}{>>First comment<<}
+`{== Highlighted text with a comment==}{>>First comment<<}` {== Highlighted text with a comment==}{>>First comment<<}
 
-{>>Single comment <<}
+`{>>Single comment <<}` {>>Single comment <<}
 
 
 ## Addition
 
-{++This is added text++}
+`{++This is added text++}` {++This is added text++}
 
-{++This is added text with some removed++}{-- removed--}
+`{++This is added text with some removed++}{-- removed--}` {++This is added text with some removed++}{-- removed--}
 
 
 ## Deletion
 
-{--This is removed text--}
+`{--This is removed text--}` {--This is removed text--}
 
-{--This is removed text with some added--}{++added ++}
+`{--This is removed text with some added--}{++added ++}` {--This is removed text with some added--}{++added ++}
 
 ## Replacement
 
-{~~This is original text~> this is the replacement~~}
+`{~~This is original text~> this is the replacement~~}` {~~This is original text~> this is the replacement~~}

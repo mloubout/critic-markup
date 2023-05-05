@@ -32,8 +32,55 @@ local scriptcode = [[
 </ul>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-<script type="text/javascript" src="_extensions/critic-markup/critic.js"></script>
+<script type="text/javascript">
+  function critic() {
+
+      $('.fullcontent').addClass('markup');
+      $('#markup-button').addClass('active');
+      $('ins.break').unwrap();
+      $('span.critic.comment').wrap('<span class="popoverc" /></span>');
+      $('span.critic.comment').before('&#8225;');
+  }
+
+  function original() {
+      $('#original-button').addClass('active');
+      $('#edited-button').removeClass('active');
+      $('#markup-button').removeClass('active');
+
+      $('.fullcontent').addClass('original');
+      $('.fullcontent').removeClass('edited');
+      $('.fullcontent').removeClass('markup');
+  }
+
+  function edited() {
+      $('#original-button').removeClass('active');
+      $('#edited-button').addClass('active');
+      $('#markup-button').removeClass('active');
+
+      $('.fullcontent').removeClass('original');
+      $('.fullcontent').addClass('edited');
+      $('.fullcontent').removeClass('markup');
+  } 
+
+  function markup() {
+      $('#original-button').removeClass('active');
+      $('#edited-button').removeClass('active');
+      $('#markup-button').addClass('active');
+
+      $('.fullcontent').removeClass('original');
+      $('.fullcontent').removeClass('edited');
+      $('.fullcontent').addClass('markup');
+  }
+
+  var o = document.getElementById("original-button");
+  var e = document.getElementById("edited-button");
+  var m = document.getElementById("markup-button");
+
+  window.onload = critic();
+  o.onclick = original;
+  e.onclick = edited;
+  m.onclick = markup;
+</script>
 ]]
 
 function cirtiblock(blocks, k, v)
@@ -69,12 +116,18 @@ if FORMAT:match 'html' then
   -- Check Inlines for Strikeout (~~) and remove brackets before/after for replacement
   function Inlines (inlines)
     for i = #inlines-1,2,-1 do
-      if inlines[i] and inlines[i].t == 'Strikeout' then
-        if inlines[i+1].t == 'Str' and inlines[i+1].text == "}" then
-          inlines:remove(i+1)
+      if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i+1] then
+        if inlines[i+1].t == 'Str' then
+          if inlines[i+1].text == "}" then
+            inlines:remove(i+1)
+          end
         end
-        if inlines[i-1].t == 'Str' and inlines[i-1].text == "{" then
-          inlines:remove(i-1)
+      end
+      if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i-1] then
+        if inlines[i-1].t == 'Str' then
+          if inlines[i-1].text == "{" then
+            inlines:remove(i-1)
+          end
         end
       end
     end
@@ -106,9 +159,9 @@ end
 function criticheader (meta)
   quarto.doc.add_html_dependency({
     name = 'critic',
+    scripts = {'critic.min.js'},
     stylesheets = {'critic.css'}
   })
-
   -- inject the rendering code
   quarto.doc.include_text("after-body", scriptcode)
 end
