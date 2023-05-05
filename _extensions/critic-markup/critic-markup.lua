@@ -47,9 +47,9 @@ local scriptcode = [[
       $('#edited-button').removeClass('active');
       $('#markup-button').removeClass('active');
 
-      $('.fullcontent').addClass('original');
-      $('.fullcontent').removeClass('edited');
-      $('.fullcontent').removeClass('markup');
+      $('.content').addClass('original');
+      $('.content').removeClass('edited');
+      $('.content').removeClass('markup');
   }
 
   function edited() {
@@ -57,9 +57,9 @@ local scriptcode = [[
       $('#edited-button').addClass('active');
       $('#markup-button').removeClass('active');
 
-      $('.fullcontent').removeClass('original');
-      $('.fullcontent').addClass('edited');
-      $('.fullcontent').removeClass('markup');
+      $('.content').removeClass('original');
+      $('.content').addClass('edited');
+      $('.content').removeClass('markup');
   } 
 
   function markup() {
@@ -67,9 +67,9 @@ local scriptcode = [[
       $('#edited-button').removeClass('active');
       $('#markup-button').addClass('active');
 
-      $('.fullcontent').removeClass('original');
-      $('.fullcontent').removeClass('edited');
-      $('.fullcontent').addClass('markup');
+      $('.content').removeClass('original');
+      $('.content').removeClass('edited');
+      $('.content').addClass('markup');
   }
 
   var o = document.getElementById("original-button");
