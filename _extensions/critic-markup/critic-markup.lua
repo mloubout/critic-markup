@@ -104,6 +104,7 @@ end
 
 
 if FORMAT:match 'html' then
+
   function Str (el)
     local replaced = {el}
     -- Check for standard substitutions
@@ -113,27 +114,30 @@ if FORMAT:match 'html' then
     return replaced
   end
 
+  function Strikeout (strk)
+    return strk.content
+  end
+
   -- Check Inlines for Strikeout (~~) and remove brackets before/after for replacement
   function Inlines (inlines)
     for i = #inlines-1,2,-1 do
       if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i+1] then
         if inlines[i+1].t == 'Str' then
-          if inlines[i+1].text == "}" then
-            inlines:remove(i+1)
+          if inlines[i+1].text == st_e then
+            inlines[i+1] = adde
           end
         end
       end
       if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i-1] then
         if inlines[i-1].t == 'Str' then
-          if inlines[i-1].text == "{" then
-            inlines:remove(i-1)
+          if inlines[i-1].text == st_b then
+            inlines[i-1] = rm
           end
         end
       end
     end
     return inlines
   end
-
 end
 
 --- From the lightbox filter
@@ -167,4 +171,4 @@ function criticheader (meta)
 end
 
 -- All pass with Meta first
-return {{Meta = criticheader}, {Inlines = Inlines}, {Str = Str}}
+return {{Meta = criticheader}, {Inlines = Inlines}, {Strikeout = Strikeout}, {Str = Str}}
