@@ -161,13 +161,15 @@ end
 
 
 function criticheader (meta)
-  quarto.doc.add_html_dependency({
-    name = 'critic',
-    scripts = {'critic.min.js'},
-    stylesheets = {'critic.css'}
-  })
-  -- inject the rendering code
-  quarto.doc.include_text("after-body", scriptcode)
+  if FORMAT:match 'html' then
+    quarto.doc.add_html_dependency({
+      name = 'critic',
+      scripts = {'critic.min.js'},
+      stylesheets = {'critic.css'}
+    })
+    -- inject the rendering code
+    quarto.doc.include_text("after-body", scriptcode)
+  end
 end
 
 -- All pass with Meta first
