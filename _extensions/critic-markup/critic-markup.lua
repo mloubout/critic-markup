@@ -2,19 +2,33 @@
 local maybesubs = false
 local stk_end = false
 
-add = pandoc.RawInline('html', "<ins>")
-adde = pandoc.RawInline('html', "</ins>")
+if FORMAT:match 'html' then
+  add = pandoc.RawInline('html', "<ins>")
+  adde = pandoc.RawInline('html', "</ins>")
 
-rm = pandoc.RawInline('html', "<del>")
-rme = pandoc.RawInline('html', "</del>")
-rmeadd = pandoc.RawInline('html', "</del><ins>")
+  rm = pandoc.RawInline('html', "<del>")
+  rme = pandoc.RawInline('html', "</del>")
+  rmeadd = pandoc.RawInline('html', "</del><ins>")
 
-mark = pandoc.RawInline('html', "<mark>")
-marke = pandoc.RawInline('html', "</mark>")
+  mark = pandoc.RawInline('html', "<mark>")
+  marke = pandoc.RawInline('html', "</mark>")
 
-comm = pandoc.RawInline('html', [[<span class="critic comment">]])
-comme = pandoc.RawInline('html', "</span>")
+  comm = pandoc.RawInline('html', [[<span class="critic comment">]])
+  comme = pandoc.RawInline('html', "</span>")
+elseif FORMAT:match 'latex' then
+  add = pandoc.RawInline('latex', "\\criticmarkupadd{")
+  adde = pandoc.RawInline('latex', "}")
 
+  rm = pandoc.RawInline('latex', "\\criticmarkuprm{")
+  rme = pandoc.RawInline('latex', "}")
+  rmeadd = pandoc.RawInline('latex', "}\\criticmarkupadd{")
+
+  mark = pandoc.RawInline('latex', "\\criticmarkupmark{")
+  marke = pandoc.RawInline('latex', "}")
+
+  comm = pandoc.RawInline('latex', "\\criticmarkupcomm{")
+  comme = pandoc.RawInline('latex', "}")
+end
 ruless = {['{%+%+']=add, ['{\u{2013}']=rm, ['{==']=mark, ['{>>']=comm, ['{~~']=rm,
           ['%+%+}']=adde, ['\u{2013}}']=rme, ['==}']=marke, ['<<}']=comme, ['~~}']=rme, ['~>']=rmeadd}
 
@@ -83,6 +97,23 @@ local scriptcode = [[
 </script>
 ]]
 
+local latexcode = [[
+\IfFileExists{pdfcomment.sty}
+{
+  \usepackage{pdfcomment}
+  \newcommand{\criticmarkupadd}[1]{\pdfmarkupcomment[markup=Highlight,color={0.838431  0.913725  0.734902}]{##1}{}}
+  \newcommand{\criticmarkuprm}[1]{\pdfmarkupcomment[markup=Highlight,color={0.887059  0.673725  0.673725}]{##1}{}}
+  \newcommand{\criticmarkupmark}[1]{\pdfmarkupcomment[markup=Highlight,color={1  0.99216  0.21961}]{##1}{}}
+  \newcommand{\criticmarkupcomm}[1]{\pdfcomment[icon=Comment, color={0.89804  0.69020  0}]{##1}}
+}{
+
+  \newcommand{\criticmarkupadd}[1]{\{++{##1}++\}}
+  \newcommand{\criticmarkuprm}[1]{\{-{}-{##1}-{}-\}}
+  \newcommand{\criticmarkupmark}[1]{\{=={##1}==\}}
+  \newcommand{\criticmarkupcomm}[1]{\{>{}>{##1}<{}<\}}
+}
+]]
+
 function cirtiblock(blocks, k, v)
   local newblock = {}
   for ti,t in pairs(blocks) do
@@ -103,41 +134,38 @@ function cirtiblock(blocks, k, v)
 end
 
 
-if FORMAT:match 'html' then
-
-  function Str (el)
-    local replaced = {el}
-    -- Check for standard substitutions
-    for k,v in pairs(ruless) do
-      replaced = cirtiblock(replaced, k, v)
-    end
-    return replaced
+function Str (el)
+  local replaced = {el}
+  -- Check for standard substitutions
+  for k,v in pairs(ruless) do
+    replaced = cirtiblock(replaced, k, v)
   end
+  return replaced
+end
 
-  function Strikeout (strk)
-    return strk.content
-  end
+function Strikeout (strk)
+  return strk.content
+end
 
-  -- Check Inlines for Strikeout (~~) and remove brackets before/after for replacement
-  function Inlines (inlines)
-    for i = #inlines-1,2,-1 do
-      if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i+1] then
-        if inlines[i+1].t == 'Str' then
-          if inlines[i+1].text == st_e then
-            inlines[i+1] = adde
-          end
-        end
-      end
-      if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i-1] then
-        if inlines[i-1].t == 'Str' then
-          if inlines[i-1].text == st_b then
-            inlines[i-1] = rm
-          end
+-- Check Inlines for Strikeout (~~) and remove brackets before/after for replacement
+function Inlines (inlines)
+  for i = #inlines-1,2,-1 do
+    if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i+1] then
+      if inlines[i+1].t == 'Str' then
+        if inlines[i+1].text == st_e then
+          inlines[i+1] = adde
         end
       end
     end
-    return inlines
+    if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i-1] then
+      if inlines[i-1].t == 'Str' then
+        if inlines[i-1].text == st_b then
+          inlines[i-1] = rm
+        end
+      end
+    end
   end
+  return inlines
 end
 
 --- From the lightbox filter
@@ -169,6 +197,8 @@ function criticheader (meta)
     })
     -- inject the rendering code
     quarto.doc.include_text("after-body", scriptcode)
+  else
+    quarto.doc.include_text("in-header", latexcode)
   end
 end
 
