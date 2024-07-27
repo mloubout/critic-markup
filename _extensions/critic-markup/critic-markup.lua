@@ -2,6 +2,20 @@
 local maybesubs = false
 local stk_end = false
 
+local valid_versions = {all=true, markup=true, edited=true, original=true}
+local modifier = PANDOC_STATE.output_file:match("%+([^.]+)%..+$")
+if modifier then
+  for s in modifier:gmatch("[^-]+") do
+    if valid_versions[s] then
+      CRITIC_VERSION_default = s
+    end
+  end
+end
+
+if not valid_versions[CRITIC_VERSION_default] then
+  CRITIC_VERSION_default = "all"
+end
+
 if quarto.doc.is_format('html') then
   add = pandoc.RawInline('html', "<ins>")
   adde = pandoc.RawInline('html', "</ins>")
@@ -45,6 +59,7 @@ st_b = '{'
 st_e = '}'
 
 local scriptcode = [[
+
 <div id="criticnav">
 <ul>
 <li id="markup-button">Markup</li>
@@ -104,7 +119,8 @@ local scriptcode = [[
 </script>
 ]]
 
-local latexcode = [[
+local latexcode = {}
+latexcode.header = [[
 \IfFileExists{pdfcomment.sty}
 {
   \usepackage{pdfcomment}
@@ -136,7 +152,7 @@ local latexcode = [[
 
 ]]
 
-local latexcode_edited = [[
+latexcode.edited = [[
   \renewcommand{\criticmarkupadd}[1]{#1}
   \renewcommand{\criticmarkuprm}[1]{}
   \renewcommand{\criticmarkupmark}[1]{#1}
@@ -147,7 +163,7 @@ local latexcode_edited = [[
   }
 ]]
 
-local latexcode_original = [[
+latexcode.original = [[
   \renewcommand{\criticmarkupadd}[1]{}
   \renewcommand{\criticmarkuprm}[1]{#1}
   \renewcommand{\criticmarkupmark}[1]{#1}
@@ -158,10 +174,18 @@ local latexcode_original = [[
   }
 ]]
 
-local latexcode_reset = [[
+latexcode.reset = [[
+
+\clearpage
+
+]]
+
+latexcode.newpage = [[
+
 \maketitle
 
 \setcounter{page}{\value{criticmarkupfirstpage}}
+
 ]]
 
 function cirtiblock(blocks, k, v)
@@ -240,8 +264,7 @@ end
 
 function criticheader (meta)
   local version = meta["critic-markup-version"]
-  CRITIC_VERSION = version and pandoc.utils.stringify(version) or "all"
-  local valid_versions = {all=true, markup=true, edited=true, original=true}
+  CRITIC_VERSION = version and pandoc.utils.stringify(version) or CRITIC_VERSION_default
   if not valid_versions[CRITIC_VERSION] then
     error("Invalid critic-markup-version: " .. CRITIC_VERSION)
   end
@@ -256,6 +279,7 @@ function criticheader (meta)
     if CRITIC_VERSION == "all" then
       return
     end
+    -- inject the code selecting a specific version.
     local activate = [[
       <script>
         document.getElementById("criticnav").style.display = "none";
@@ -265,7 +289,7 @@ function criticheader (meta)
     activate = activate:gsub("CRITIC_VERSION", CRITIC_VERSION)
     quarto.doc.include_text("in-header", activate)
   elseif quarto.doc.is_format('latex') then
-    quarto.doc.include_text("in-header", latexcode)
+    quarto.doc.include_text("in-header", latexcode.header)
     quarto.doc.include_text("before-body", "\\setcounter{criticmarkupfirstpage}{\\value{page}}")
   end
 end
@@ -276,20 +300,22 @@ if quarto.doc.is_format('latex') then
 
     if CRITIC_VERSION == "all" then
       -- Insert edited version of document.
-      table.insert(doc.blocks, pandoc.RawInline('latex', latexcode_edited .. latexcode_reset))
-      for i = 0,n-1 do
+      local code = latexcode.reset .. latexcode.edited .. latexcode.newpage
+      table.insert(doc.blocks, pandoc.RawInline('latex', code))
+      for i = 0,n-1 do -- TODO: maybe this should be 1 to n.
         table.insert(doc.blocks, doc.blocks[i])
       end
 
       -- Insert original version of document.
-      table.insert(doc.blocks, pandoc.RawInline('latex', latexcode_original .. latexcode_reset))
+      code = latexcode.reset .. latexcode.original .. latexcode.newpage
+      table.insert(doc.blocks, pandoc.RawInline('latex', code))
       for i = 0,n-1 do
         table.insert(doc.blocks, doc.blocks[i])
       end
     elseif CRITIC_VERSION == "edited" then
-      quarto.doc.include_text("in-header", latexcode_edited)
+      quarto.doc.include_text("in-header", latexcode.edited)
     elseif CRITIC_VERSION == "original" then
-      quarto.doc.include_text("in-header", latexcode_original)
+      quarto.doc.include_text("in-header", latexcode.original)
     end
     return doc
   end
