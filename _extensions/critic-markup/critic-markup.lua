@@ -2,7 +2,21 @@
 local maybesubs = false
 local stk_end = false
 
-if FORMAT:match 'html' then
+local valid_versions = {all=true, markup=true, edited=true, original=true}
+local modifier = PANDOC_STATE.output_file:match("%+([^.]+)%..+$")
+if modifier then
+  for s in modifier:gmatch("[^-]+") do
+    if valid_versions[s] then
+      CRITIC_VERSION_default = s
+    end
+  end
+end
+
+if not valid_versions[CRITIC_VERSION_default] then
+  CRITIC_VERSION_default = "all"
+end
+
+if quarto.doc.is_format('html') then
   add = pandoc.RawInline('html', "<ins>")
   adde = pandoc.RawInline('html', "</ins>")
 
@@ -15,7 +29,7 @@ if FORMAT:match 'html' then
 
   comm = pandoc.RawInline('html', [[<span class="critic comment">]])
   comme = pandoc.RawInline('html', "</span>")
-elseif FORMAT:match 'latex' then
+elseif quarto.doc.is_format('latex') then
   add = pandoc.RawInline('latex', "\\criticmarkupadd{")
   adde = pandoc.RawInline('latex', "}")
 
@@ -28,9 +42,17 @@ elseif FORMAT:match 'latex' then
 
   comm = pandoc.RawInline('latex', "\\criticmarkupcomm{")
   comme = pandoc.RawInline('latex', "}")
+else
+  unsupported = true
+  adde = pandoc.Str("++}")
+  rm = pandoc.Str("{--")
 end
-ruless = {['{%+%+']=add, ['{\u{2013}']=rm, ['{==']=mark, ['{>>']=comm, ['{~~']=rm,
-          ['%+%+}']=adde, ['\u{2013}}']=rme, ['==}']=marke, ['<<}']=comme, ['~~}']=rme, ['~>']=rmeadd}
+if unsupported then
+  ruless = {}
+else
+  ruless = {['{%+%+']=add, ['{\u{2013}']=rm, ['{==']=mark, ['{>>']=comm, ['{~~']=rm,
+            ['%+%+}']=adde, ['\u{2013}}']=rme, ['==}']=marke, ['<<}']=comme, ['~~}']=rme, ['~>']=rmeadd}
+end
 
 -- Strikeout before/after
 st_b = '{'
@@ -90,14 +112,15 @@ local scriptcode = [[
   var e = document.getElementById("edited-button");
   var m = document.getElementById("markup-button");
 
-  window.onload = critic();
+  window.addEventListener('load', critic)
   o.onclick = original;
   e.onclick = edited;
   m.onclick = markup;
 </script>
 ]]
 
-local latexcode = [[
+local latexcode = {}
+latexcode.header = [[
 \IfFileExists{pdfcomment.sty}
 {
   \usepackage{pdfcomment}
@@ -112,6 +135,57 @@ local latexcode = [[
   \newcommand{\criticmarkupmark}[1]{\{=={##1}==\}}
   \newcommand{\criticmarkupcomm}[1]{\{>{}>{##1}<{}<\}}
 }
+\IfFileExists{draftwatermark.sty}
+{
+  \usepackage{draftwatermark}
+  \DraftwatermarkOptions{%
+    pos={5mm,5mm},
+    anchor=lt,
+    alignment=l,
+    fontsize=10mm,
+    angle=0
+  }
+  \DraftwatermarkOptions{text=Markup}
+}
+
+\newcounter{criticmarkupfirstpage}
+
+]]
+
+latexcode.edited = [[
+  \renewcommand{\criticmarkupadd}[1]{#1}
+  \renewcommand{\criticmarkuprm}[1]{}
+  \renewcommand{\criticmarkupmark}[1]{#1}
+  \renewcommand{\criticmarkupcomm}[1]{}
+  \IfFileExists{draftwatermark.sty}
+  {
+    \DraftwatermarkOptions{text=Edited}
+  }
+]]
+
+latexcode.original = [[
+  \renewcommand{\criticmarkupadd}[1]{}
+  \renewcommand{\criticmarkuprm}[1]{#1}
+  \renewcommand{\criticmarkupmark}[1]{#1}
+  \renewcommand{\criticmarkupcomm}[1]{}
+  \IfFileExists{draftwatermark.sty}
+  {
+    \DraftwatermarkOptions{text=Original}
+  }
+]]
+
+latexcode.reset = [[
+
+\clearpage
+
+]]
+
+latexcode.newpage = [[
+
+\maketitle
+
+\setcounter{page}{\value{criticmarkupfirstpage}}
+
 ]]
 
 function cirtiblock(blocks, k, v)
@@ -189,18 +263,63 @@ end
 
 
 function criticheader (meta)
-  if FORMAT:match 'html' then
+  local version = meta["critic-markup-version"]
+  CRITIC_VERSION = version and pandoc.utils.stringify(version) or CRITIC_VERSION_default
+  if not valid_versions[CRITIC_VERSION] then
+    error("Invalid critic-markup-version: " .. CRITIC_VERSION)
+  end
+  if quarto.doc.is_format('html') then
     quarto.doc.add_html_dependency({
       name = 'critic',
       scripts = {'critic.min.js'},
       stylesheets = {'critic.css'}
     })
     -- inject the rendering code
-    quarto.doc.include_text("after-body", scriptcode)
-  else
-    quarto.doc.include_text("in-header", latexcode)
+    quarto.doc.include_text("in-header", scriptcode)
+    if CRITIC_VERSION == "all" then
+      return
+    end
+    -- inject the code selecting a specific version.
+    local activate = [[
+      <script>
+        document.getElementById("criticnav").style.display = "none";
+        window.addEventListener('load', CRITIC_VERSION)
+      </script>
+    ]]
+    activate = activate:gsub("CRITIC_VERSION", CRITIC_VERSION)
+    quarto.doc.include_text("in-header", activate)
+  elseif quarto.doc.is_format('latex') then
+    quarto.doc.include_text("in-header", latexcode.header)
+    quarto.doc.include_text("before-body", "\\setcounter{criticmarkupfirstpage}{\\value{page}}")
+  end
+end
+
+if quarto.doc.is_format('latex') then
+  function Pandoc(doc)
+    local n = #doc.blocks
+
+    if CRITIC_VERSION == "all" then
+      -- Insert edited version of document.
+      local code = latexcode.reset .. latexcode.edited .. latexcode.newpage
+      table.insert(doc.blocks, pandoc.RawInline('latex', code))
+      for i = 0,n-1 do -- TODO: maybe this should be 1 to n.
+        table.insert(doc.blocks, doc.blocks[i])
+      end
+
+      -- Insert original version of document.
+      code = latexcode.reset .. latexcode.original .. latexcode.newpage
+      table.insert(doc.blocks, pandoc.RawInline('latex', code))
+      for i = 0,n-1 do
+        table.insert(doc.blocks, doc.blocks[i])
+      end
+    elseif CRITIC_VERSION == "edited" then
+      quarto.doc.include_text("in-header", latexcode.edited)
+    elseif CRITIC_VERSION == "original" then
+      quarto.doc.include_text("in-header", latexcode.original)
+    end
+    return doc
   end
 end
 
 -- All pass with Meta first
-return {{Meta = criticheader}, {Inlines = Inlines}, {Strikeout = Strikeout}, {Str = Str}}
+return {{Meta = criticheader}, {Inlines = Inlines}, {Strikeout = Strikeout}, {Str = Str}, {Pandoc = Pandoc}}
