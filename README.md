@@ -54,3 +54,7 @@ The default `all` shows all three version of the document.
 
 Formats other than html and pdf simply show the raw critic markup syntax.
 
+Support for pdf relies on the following LaTeX packages (included in TinyTeX and therefore Quarto by default):
+
+- [pdfcomment](https://ctan.org/pkg/pdfcomment)
+- [draftwatermark](https://ctan.org/pkg/draftwatermark)
