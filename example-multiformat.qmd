@@ -1,0 +1,65 @@
+---
+title: "Critic-markdown multi-format example"
+format:
+  html: default
+  html+markup:
+    output-file: example-multiformat+markup.html
+  html+edited:
+    output-file: example-multiformat+edited.html
+  html+original:
+    output-file: example-multiformat+original.html
+  pdf: default
+  pdf+markup: default
+  pdf+edited: default
+  pdf+original: default
+filters:
+  - critic-markup
+format-links:
+  - text: HTML
+    href: ./example-multiformat.html
+  - text: HTML+markup
+    href: ./example-multiformat+markup.html
+  - text: HTML+edited
+    href: ./example-multiformat+edited.html
+  - text: HTML+original
+    href: ./example-multiformat+original.html
+  - pdf
+  - format: pdf+edited
+    text: PDF+edited
+  - format: pdf+original
+    text: PDF+original
+  - format: pdf+markup
+    text: PDF+markup
+
+---
+
+
+## Critic Markdown
+
+This filter adds processing of critic markdown syntax. Below are examples of usage.
+
+## Highlighting
+
+`{==Highlighted text==}` {==Highlighted text==}
+
+`{== Highlighted text with a comment==}{>>First comment<<}` {== Highlighted text with a comment==}{>>First comment<<}
+
+`{>>Single comment <<}` {>>Single comment <<}
+
+
+## Addition
+
+`{++This is added text++}` {++This is added text++}
+
+`{++This is added text with some removed++}{-- removed--}` {++This is added text with some removed++}{-- removed--}
+
+
+## Deletion
+
+`{--This is removed text--}` {--This is removed text--}
+
+`{--This is removed text with some added--}{++added ++}` {--This is removed text with some added--}{++added ++}
+
+## Replacement
+
+`{~~This is original text~> this is the replacement~~}` {~~This is original text~> this is the replacement~~}
