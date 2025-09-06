@@ -66,8 +66,8 @@ local scriptcode = [[
 ]]
 
 local latexcode = [[
-\IfFileExists{pdfcomment.sty}{
-  \usepackage{pdfcomment}
+\makeatletter
+\@ifpackageloaded{pdfcomment}{
   \newcommand{\criticmarkupadd}[1]{\pdfmarkupcomment[markup=Highlight,color={0.838431 0.913725 0.734902}]{##1}{}}
   \newcommand{\criticmarkuprm}[1]{\pdfmarkupcomment[markup=Highlight,color={0.887059 0.673725 0.673725}]{##1}{}}
   \newcommand{\criticmarkupmark}[1]{\pdfmarkupcomment[markup=Highlight,color={1 0.99216 0.21961}]{##1}{}}
@@ -78,6 +78,7 @@ local latexcode = [[
   \newcommand{\criticmarkupmark}[1]{\{=={##1}==\}}
   \newcommand{\criticmarkupcomm}[1]{\{>>{##1}<<\}}
 }
+\makeatother
 ]]
 
 local function setup_markup()
