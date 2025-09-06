@@ -57,6 +57,10 @@ quarto render example.qmd --to pdf -M critic-mode=original
 quarto render example.qmd --to pdf -M critic-mode=edited
 ```
 
+Note:
+
+- For `critic-mode: markup` with PDF output, the LaTeX package `pdfcomment` is required. Install with TeX Live (`tlmgr install pdfcomment`) or your TeX distribution's package manager. The build intentionally fails if `pdfcomment` is not available.
+
 ## Example
 
 Here is a minimal example showing the critic markup syntax and its rendering: [example.qmd](example.qmd).
