@@ -2,6 +2,7 @@
 title: "Critic-markdown Example"
 filters:
   - critic-markup
+pdf-engine: latexmk
 ---
 
 ## Critic Markdown
