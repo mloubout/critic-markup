@@ -78,6 +78,10 @@ local function setup_markup()
     marke = pandoc.RawInline('html', '</mark>')
     comm = pandoc.RawInline('html', '<span class="critic comment">')
     comme = pandoc.RawInline('html', '</span>')
+  elseif FORMAT:match 'docx' then
+    -- For docx, we cannot use raw tags. The markup representation is
+    -- handled in a dedicated pass; here, rules are left unset.
+    add, adde, rm, rme, rmeadd, mark, marke, comm, comme = nil, nil, nil, nil, nil, nil, nil, nil, nil
   elseif FORMAT:match 'latex' then
     add = pandoc.RawInline('latex', '\\criticmarkupadd{')
     adde = pandoc.RawInline('latex', '}')
@@ -119,21 +123,27 @@ local function setup_markup()
     end
   end
 
-  rules = {
-    ['{++'] = add,
-    ['{--'] = rm,
-    ['{' .. en_dash] = rm,
-    ['{=='] = mark,
-    ['{>>'] = comm,
-    ['{~~'] = rm,
-    ['++}'] = adde,
-    ['--}'] = rme,
-    [en_dash .. '}'] = rme,
-    ['==}'] = marke,
-    ['<<}'] = comme,
-    ['~~}'] = rme,
-    ['~>'] = rmeadd,
-  }
+  -- Only define HTML/LaTeX replacement rules. For docx we handle
+  -- markup via a dedicated inlines processor (no raw tags).
+  if FORMAT:match('html') or FORMAT:match('latex') then
+    rules = {
+      ['{++'] = add,
+      ['{--'] = rm,
+      ['{' .. en_dash] = rm,
+      ['{=='] = mark,
+      ['{>>'] = comm,
+      ['{~~'] = rm,
+      ['++}'] = adde,
+      ['--}'] = rme,
+      [en_dash .. '}'] = rme,
+      ['==}'] = marke,
+      ['<<}'] = comme,
+      ['~~}'] = rme,
+      ['~>'] = rmeadd,
+    }
+  else
+    rules = {}
+  end
 end
 
 -- determine whether we should include content based on current critic state
@@ -369,12 +379,154 @@ function Strikeout(strk)
   return strk.content
 end
 
+-- Convert critic markup to native Pandoc inlines for non-HTML, non-LaTeX
+-- formats (e.g., docx) when showing markup. Uses Strikeout for deletions,
+-- Emph for insertions and Strong for marks. Comments are appended in
+-- brackets as Emph, e.g. [comment: ...]. Substitutions render as
+-- Strikeout(orig) + " -> " + Emph(new).
+local function process_inlines_for_markup_native(inlines)
+  local function str_node(s)
+    if s == '' then return nil end
+    return pandoc.Str(s)
+  end
+  local out = pandoc.List()
+  local buf = ''
+  local state = 'normal'
+  local sub_orig = ''
+
+  local function flush_text()
+    if buf ~= '' then
+      out:insert(pandoc.Str(buf))
+      buf = ''
+    end
+  end
+
+  local function emit_wrapped(kind, text)
+    if text == '' then return end
+    if kind == 'add' then
+      out:insert(pandoc.Emph({ pandoc.Str(text) }))
+    elseif kind == 'del' then
+      out:insert(pandoc.Strikeout({ pandoc.Str(text) }))
+    elseif kind == 'mark' then
+      out:insert(pandoc.Strong({ pandoc.Str(text) }))
+    elseif kind == 'comm' then
+      out:insert(pandoc.Space())
+      out:insert(pandoc.Emph({ pandoc.Str('[comment: ' .. text .. ']') }))
+    end
+  end
+
+  -- flatten text-like inlines into a single string for parsing
+  local text = ''
+  for _, t in ipairs(inlines) do
+    if t.t == 'Str' then text = text .. t.text
+    elseif t.t == 'Space' then text = text .. ' '
+    elseif t.t == 'SoftBreak' or t.t == 'LineBreak' then text = text .. ' '
+    else
+      -- non-text inline: flush buffered text first, then keep the token
+      if text ~= '' then
+        -- process text chunk recursively
+        local subin = { pandoc.Str(text) }
+        local processed = process_inlines_for_markup_native(subin)
+        for _, x in ipairs(processed) do out:insert(x) end
+        text = ''
+      end
+      out:insert(t)
+    end
+  end
+  if text ~= '' then
+    -- parse the text buffer for critic markers
+    local i = 1
+    while i <= #text do
+      -- open markers
+      if state == 'normal' then
+        if text:sub(i, i + 2) == '{++' then
+          flush_text(); state = 'add'; i = i + 3; goto continue
+        elseif text:sub(i, i + 2) == '{--' then
+          flush_text(); state = 'del'; i = i + 3; goto continue
+        elseif text:sub(i, i) == '{' and text:sub(i + 1, i + 1) == en_dash then
+          flush_text(); state = 'del'; i = i + 2; goto continue
+        elseif text:sub(i, i + 2) == '{==' then
+          flush_text(); state = 'mark'; i = i + 3; goto continue
+        elseif text:sub(i, i + 2) == '{>>' then
+          flush_text(); state = 'comm'; i = i + 3; goto continue
+        elseif text:sub(i, i + 2) == '{~~' then
+          flush_text(); state = 'sub_orig'; sub_orig = ''; i = i + 3; goto continue
+        end
+      end
+
+      -- mid substitution marker
+      if state == 'sub_orig' and text:sub(i, i + 1) == '~>' then
+        -- emit original as strikeout now, then switch to collecting new
+        if sub_orig ~= '' then out:insert(pandoc.Strikeout({ pandoc.Str(sub_orig) })) end
+        out:insert(pandoc.Str(' -> '))
+        state = 'sub_new'
+        i = i + 2
+        goto continue
+      end
+
+      -- close markers
+      if state ~= 'normal' then
+        if text:sub(i, i + 2) == '++}' then
+          emit_wrapped('add', buf); buf = ''; state = 'normal'; i = i + 3; goto continue
+        elseif text:sub(i, i + 2) == '--}' then
+          emit_wrapped('del', buf); buf = ''; state = 'normal'; i = i + 3; goto continue
+        elseif text:sub(i, i) == en_dash and text:sub(i + 1, i + 1) == '}' then
+          emit_wrapped('del', buf); buf = ''; state = 'normal'; i = i + 2; goto continue
+        elseif text:sub(i, i + 2) == '==}' then
+          emit_wrapped('mark', buf); buf = ''; state = 'normal'; i = i + 3; goto continue
+        elseif text:sub(i, i + 2) == '<<}' then
+          emit_wrapped('comm', buf); buf = ''; state = 'normal'; i = i + 3; goto continue
+        elseif text:sub(i, i + 2) == '~~}' then
+          if state == 'sub_new' then
+            emit_wrapped('add', buf)
+          else
+            -- no new part; show only original
+            if sub_orig ~= '' then out:insert(pandoc.Strikeout({ pandoc.Str(sub_orig) })) end
+          end
+          buf = ''
+          state = 'normal'
+          i = i + 3
+          goto continue
+        end
+      end
+
+      -- accumulate text for current state
+      local ch = text:sub(i, i)
+      if state == 'sub_orig' then
+        sub_orig = sub_orig .. ch
+      else
+        buf = buf .. ch
+      end
+      i = i + 1
+      ::continue::
+    end
+    -- flush any remaining buffered content if markers were unbalanced
+    if buf ~= '' then
+      if state == 'add' then emit_wrapped('add', buf)
+      elseif state == 'del' then emit_wrapped('del', buf)
+      elseif state == 'mark' then emit_wrapped('mark', buf)
+      elseif state == 'comm' then emit_wrapped('comm', buf)
+      else out:insert(pandoc.Str(buf)) end
+      buf = ''
+    end
+  end
+
+  return out
+end
+
 function Inlines(inlines)
+  -- For non-markup modes (original/edited) on non-LaTeX formats, strip/keep
+  -- critic regions across tokens. This covers HTML original/edited and docx.
   if critic_mode ~= 'markup' and not FORMAT:match('latex') then
-    -- For PDF original/edited modes, strip or keep critic regions across tokens
     return process_inlines_for_pdf(inlines)
   end
 
+  -- For docx markup, convert to native inlines with basic styling
+  if critic_mode == 'markup' and FORMAT:match('docx') then
+    return process_inlines_for_markup_native(inlines)
+  end
+
+  -- HTML/LaTeX markup: rely on raw tag replacement rules
   for i = #inlines - 1, 2, -1 do
     if inlines[i] and inlines[i].t == 'Strikeout' and inlines[i + 1] then
       if inlines[i + 1].t == 'Str' and inlines[i + 1].text == st_e then
@@ -398,6 +550,8 @@ local function criticheader(meta)
   -- Set up macros and rules for current format/mode
   setup_markup()
   if FORMAT:match 'html' then
+    -- For HTML, support all modes. Only include the interactive UI when
+    -- rendering markup mode; in original/edited, emit static HTML.
     if critic_mode == 'markup' then
       quarto.doc.add_html_dependency({
         name = 'critic',
