@@ -169,6 +169,11 @@ local function process_text_segment(text, state)
   local out = {}
   local i = 1
   while i <= #text do
+    -- drop any stray closing brace in non-markup modes
+    if text:sub(i, i) == '}' then
+      i = i + 1
+      goto continue
+    end
     -- opening markers (only meaningful outside a region)
     if state == 'normal' then
       if text:sub(i, i + 2) == '{++' then
@@ -179,10 +184,10 @@ local function process_text_segment(text, state)
         state = 'del'
         i = i + 3
         goto continue
-      elseif text:sub(i, i) == '{' and text:sub(i + 1, i + 1) == en_dash then
+      elseif text:sub(i, i + #('{' .. en_dash) - 1) == '{' .. en_dash then
         -- en dash variant for deletions: {–
         state = 'del'
-        i = i + 2
+        i = i + #('{' .. en_dash)
         goto continue
       elseif text:sub(i, i + 2) == '{==' then
         state = 'mark'
@@ -196,9 +201,26 @@ local function process_text_segment(text, state)
         state = 'sub_orig'
         i = i + 3
         goto continue
+      elseif text:sub(i, i) == '{' then
+        -- Fallback handling: brace-wrapped substitution without tildes
+        -- (e.g., after Strikeout has been flattened): {orig ~> new}
+        local rest = text:sub(i + 1)
+        local close_pos = rest:find('}', 1, true)
+        if close_pos then
+          local inner = rest:sub(1, close_pos - 1)
+          local orig, new = inner:match('^(.-)%s*~>%s*(.*)$')
+          if orig and new then
+            if critic_mode == 'edited' then
+              if new ~= '' and include_for_mode('sub_new') then out[#out + 1] = new end
+            else
+              if orig ~= '' and include_for_mode('sub_orig') then out[#out + 1] = orig end
+            end
+            i = i + close_pos + 1
+            goto continue
+          end
+        end
       end
     end
-
     -- mid substitution marker
     if state == 'sub_orig' and text:sub(i, i + 1) == '~>' then
       state = 'sub_new'
@@ -216,9 +238,9 @@ local function process_text_segment(text, state)
         state = 'normal'
         i = i + 3
         goto continue
-      elseif text:sub(i, i) == en_dash and text:sub(i + 1, i + 1) == '}' then
+      elseif text:sub(i, i + #en_dash) == en_dash .. '}' then
         state = 'normal'
-        i = i + 2
+        i = i + #en_dash + 1
         goto continue
       elseif text:sub(i, i + 2) == '==}' then
         state = 'normal'
@@ -334,6 +356,35 @@ local function process_inlines_for_pdf(inlines)
       state = new_state
       if processed ~= '' then result:insert(pandoc.Str(processed)) end
     elseif inline.t == 'Strikeout' then
+      -- Handle substitution triplet that may be split across tokens:
+      -- Str("{") + Strikeout("orig ~> new") + Str("}")
+      local nexttok = inlines[i + 1]
+      local prevtok = result[#result]
+      if nexttok and nexttok.t == 'Str' and nexttok.text == '}' and prevtok and prevtok.t == 'Str' then
+        local prevtext = prevtok.text
+        if prevtext:sub(-1) == '{' then
+          -- trim the previously emitted '{'
+          if #prevtext == 1 then
+            table.remove(result, #result)
+          else
+            result[#result] = pandoc.Str(prevtext:sub(1, -2))
+          end
+          local content = pandoc.utils.stringify(inline.content)
+          local orig, new = content:match('^(.-)%s*~>%s*(.*)$')
+          if orig and new then
+            if critic_mode == 'edited' then
+              if new ~= '' and include_for_mode('sub_new') then result:insert(pandoc.Str(new)) end
+            else
+              if orig ~= '' and include_for_mode('sub_orig') then result:insert(pandoc.Str(orig)) end
+            end
+            i = i + 1 -- skip the trailing '}' token
+            goto continue
+          else
+            -- not a substitution; re-insert '{' and fall back
+            result:insert(pandoc.Str('{'))
+          end
+        end
+      end
       if include_for_mode(state) then result:insert(inline) end
     else
       if include_for_mode(state) then result:insert(inline) end
@@ -443,8 +494,8 @@ local function process_inlines_for_markup_native(inlines)
           flush_text(); state = 'add'; i = i + 3; goto continue
         elseif text:sub(i, i + 2) == '{--' then
           flush_text(); state = 'del'; i = i + 3; goto continue
-        elseif text:sub(i, i) == '{' and text:sub(i + 1, i + 1) == en_dash then
-          flush_text(); state = 'del'; i = i + 2; goto continue
+        elseif text:sub(i, i + #('{' .. en_dash) - 1) == '{' .. en_dash then
+          flush_text(); state = 'del'; i = i + #('{' .. en_dash); goto continue
         elseif text:sub(i, i + 2) == '{==' then
           flush_text(); state = 'mark'; i = i + 3; goto continue
         elseif text:sub(i, i + 2) == '{>>' then
@@ -470,8 +521,8 @@ local function process_inlines_for_markup_native(inlines)
           emit_wrapped('add', buf); buf = ''; state = 'normal'; i = i + 3; goto continue
         elseif text:sub(i, i + 2) == '--}' then
           emit_wrapped('del', buf); buf = ''; state = 'normal'; i = i + 3; goto continue
-        elseif text:sub(i, i) == en_dash and text:sub(i + 1, i + 1) == '}' then
-          emit_wrapped('del', buf); buf = ''; state = 'normal'; i = i + 2; goto continue
+        elseif text:sub(i, i + #en_dash) == en_dash .. '}' then
+          emit_wrapped('del', buf); buf = ''; state = 'normal'; i = i + #en_dash + 1; goto continue
         elseif text:sub(i, i + 2) == '==}' then
           emit_wrapped('mark', buf); buf = ''; state = 'normal'; i = i + 3; goto continue
         elseif text:sub(i, i + 2) == '<<}' then
